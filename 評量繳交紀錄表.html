@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>評量繳交紀錄表</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .student-seat {
+            min-height: 45px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            position: relative;
+            padding: 2px;
+        }
+        .student-seat:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+        .student-seat.completed {
+            background: #dcfce7;
+            border-color: #16a34a;
+        }
+        .student-seat.correction {
+            background: #fef3c7;
+            border-color: #f59e0b;
+        }
+        .student-seat.rename-mode {
+            border-color: #a855f7;
+            background: #faf5ff;
+        }
+        .seat-number {
+            font-size: 16px;
+            font-weight: bold;
+            color: #374151;
+            line-height: 1.2;
+        }
+        .seat-name {
+            font-size: 10px;
+            color: #6b7280;
+            margin-top: 2px;
+            text-align: center;
+            cursor: pointer;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+            line-height: 1.1;
+            max-width: 100%;
+        }
+        .seat-name:hover {
+            color: #3b82f6;
+        }
+        .completed-mark {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            color: #16a34a;
+            font-size: 16px;
+        }
+        .correction-mark {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            color: #f59e0b;
+            font-size: 16px;
+        }
+        .assignment-item {
+            padding: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+            min-width: 120px;
+            flex-shrink: 0;
+        }
+        .assignment-item:hover {
+            border-color: #3b82f6;
+            background: #f8fafc;
+        }
+        .assignment-item.selected {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+        .name-input {
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            border: 1px solid #3b82f6;
+            border-radius: 4px;
+            padding: 2px;
+            background: white;
+        }
+        .seat-name-only {
+            font-size: 18px;
+            color: #3b82f6;
+            font-weight: 600;
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        .resizer {
+            width: 8px;
+            background: #e5e7eb;
+            cursor: col-resize;
+            position: relative;
+            transition: background-color 0.2s;
+        }
+        .resizer:hover {
+            background: #9ca3af;
+        }
+        .resizer::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 2px;
+            height: 20px;
+            background: #6b7280;
+            border-radius: 1px;
+        }
+        .main-panels {
+            display: flex;
+            gap: 0;
+            height: 500px;
+        }
+        .left-panel {
+            flex: 1;
+            min-width: 200px;
+            overflow: hidden;
+        }
+        .right-panel {
+            width: 320px;
+            min-width: 150px;
+            overflow: hidden;
+        }
+        @media (max-width: 640px) {
+            .main-panels {
+                display: block;
+                height: auto;
+            }
+            .left-panel, .right-panel {
+                width: 100%;
+                min-width: auto;
+                height: 300px;
+            }
+            .student-seat {
+                min-height: 35px;
+            }
+            .seat-name-only {
+                font-size: 14px;
+            }
+            .seat-number {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 標題區 -->
+    <div class="fixed top-0 left-0 right-0 bg-gray-50 z-50" style="height: 70px;">
+        <div class="container mx-auto px-4 py-2 max-w-7xl h-full">
+            <div class="flex items-center justify-between h-full">
+                <!-- 左側：日期 -->
+                <div>
+                    <span id="currentDate" class="text-lg md:text-2xl font-bold text-gray-700"></span>
+                </div>
+                
+                <!-- 中間：標題 -->
+                <div class="flex-1 text-center">
+                    <h1 class="text-2xl md:text-4xl font-bold text-gray-800">評量繳交紀錄表</h1>
+                </div>
+                
+                <!-- 右側：控制項 -->
+                <div class="hidden sm:flex items-center space-x-6">
+                    <!-- 班級人數 -->
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm font-medium text-gray-700">班級人數：</span>
+                        <input type="number" id="studentCount" value="42" min="1" max="50" class="w-16 text-center border border-gray-300 rounded py-1 text-xs" onchange="updateStudentCount()">
+                    </div>
+                    
+                    <!-- 新增評量 -->
+                    <div class="flex items-center space-x-2">
+                        <span class="text-sm font-medium text-gray-700">新增評量：</span>
+                        <input type="text" id="newAssignment" placeholder="輸入評量名稱" class="border border-gray-300 rounded px-3 py-1 w-32 text-xs">
+                        <button onclick="addAssignment()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">新增</button>
+                    </div>
+                    
+
+
+                </div>
+            </div>
+            
+
+        </div>
+    </div>
+    
+    <!-- 手機版控制項 -->
+    <div class="sm:hidden bg-white shadow-sm border-b px-4 py-3 fixed top-16 left-0 right-0 z-40">
+        <div class="space-y-2">
+            <div class="flex items-center justify-between space-x-4">
+                <!-- 班級人數 -->
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-medium text-gray-700">人數：</span>
+                    <input type="number" id="studentCountMobile" value="42" min="1" max="50" class="w-12 text-center border border-gray-300 rounded py-1 text-xs" onchange="updateStudentCountMobile()">
+                </div>
+                
+                <!-- 新增評量 -->
+                <div class="flex items-center space-x-2 flex-1">
+                    <input type="text" id="newAssignmentMobile" placeholder="評量名稱" class="border border-gray-300 rounded px-2 py-1 flex-1 text-xs">
+                    <button onclick="addAssignmentMobile()" class="bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs">新增</button>
+                </div>
+            </div>
+            
+
+
+        </div>
+    </div>
+
+    <!-- 主要內容區 -->
+    <div class="container mx-auto p-4 max-w-7xl md:pt-4" style="margin-top: 60px; padding-top: 20px;">
+        
+        <!-- 評量清單 -->
+        <div class="bg-white rounded-lg shadow p-4 mb-4">
+            <h2 class="text-lg font-semibold text-gray-800 mb-3 border-b pb-2">評量清單</h2>
+            <div class="overflow-x-auto">
+                <div id="assignmentList" class="flex gap-3 min-w-max">
+                    <div class="text-gray-500 text-center py-8 text-sm w-full">尚無評量項目</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 主要內容區 -->
+        <div class="main-panels mb-4 sm:flex sm:gap-0 space-y-4 sm:space-y-0">
+            <!-- 左欄：學生座位表 -->
+            <div id="leftPanel" class="left-panel bg-white sm:rounded-l-lg rounded-lg shadow p-4 flex flex-col">
+                <div class="flex items-center justify-between mb-3 border-b pb-2">
+                    <h2 class="text-base md:text-lg font-semibold text-gray-800">學生名單</h2>
+                    <div class="flex space-x-2">
+                        <button id="renameBtn" onclick="toggleRenameMode()" class="bg-purple-500 hover:bg-purple-600 text-white px-2 md:px-3 py-1 rounded text-xs md:text-sm">更名</button>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-600 mb-3 hidden md:block">點選評量後，再點選學生完成打勾。更名模式下點選學生可修改姓名。</div>
+                <div class="overflow-y-auto flex-1">
+                    <div id="studentGrid" class="grid gap-2" style="grid-template-columns: repeat(auto-fit, minmax(60px, 1fr));">
+                        <!-- 學生座號將在這裡動態生成 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 分隔線 -->
+            <div id="resizer" class="resizer hidden sm:block"></div>
+            
+            <!-- 右欄：未完成學生名單 -->
+            <div id="rightPanel" class="right-panel bg-white sm:rounded-r-lg rounded-lg shadow p-4 flex flex-col">
+                <div class="flex items-center justify-between mb-3 border-b pb-2">
+                    <h2 class="text-base md:text-lg font-semibold text-gray-800">未完成名單</h2>
+                </div>
+                <div class="overflow-y-auto flex-1">
+                    <div id="incompleteList" class="space-y-1">
+                        <div class="text-gray-500 text-center py-8 text-sm">請先選擇評量</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 缺交區域 -->
+        <div class="bg-white rounded-lg shadow p-4 flex flex-col resize" style="height: calc(100vh - 150px); min-height: 300px;" class="md:h-[calc(100vh-90px)]">
+            <div class="flex items-center justify-between mb-3 border-b pb-2">
+                <h2 class="text-base md:text-lg font-semibold text-gray-800">缺交</h2>
+            </div>
+            <div class="overflow-y-auto flex-1">
+                <div id="missingAssignmentsList" class="space-y-2">
+                    <div class="text-gray-500 text-center py-8 text-sm">尚無評量項目</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <script>
+        let students = [];
+        let assignments = [];
+        let selectedAssignment = null;
+        let editingStudent = null;
+        let renameMode = false;
+
+        // 初始化
+        function init() {
+            updateDate();
+            loadAllData(); // 載入儲存的資料
+            generateStudents();
+            setInterval(updateDate, 1000);
+        }
+
+        // 更新日期
+        function updateDate() {
+            const now = new Date();
+            const month = now.getMonth() + 1;
+            const day = now.getDate();
+            document.getElementById('currentDate').textContent = `${month}/${day}`;
+        }
+
+
+
+        // 更新學生人數
+        function updateStudentCount() {
+            const count = parseInt(document.getElementById('studentCount').value);
+            document.getElementById('studentCountMobile').value = count;
+            generateStudents(count);
+            autoSave(); // 自動儲存
+        }
+
+        // 手機版更新學生人數
+        function updateStudentCountMobile() {
+            const count = parseInt(document.getElementById('studentCountMobile').value);
+            document.getElementById('studentCount').value = count;
+            generateStudents(count);
+            autoSave(); // 自動儲存
+        }
+
+        // 預設學生姓名
+        const defaultStudentNames = [
+            '張卓恩', '黎祐丞', '張紹鋒', '林柏廷', '江錥穎', '蘇韋寧', '黃睿逸', '楊尹德', 
+            '許芝菱', '陳語希', '陳畯甫', '楊蕎安', '許程宥', '施則睿', '蔡秉杰', '張家瑀', 
+            '胡芝華', '廖譽皓', '施貝妮', '許以樂', '呂欣潔', '黃博揚', '方琪茵', '謝崴宇', 
+            '詹亞諾', '翁誠陽', '沈恩碩', '張庭語', '方祺森', '蔡珵伊', '鄭思維', '吳承諺', 
+            '曹守棣', '廖柏淵', '鄭宇秧', '彭資蘋', '魏舒卉', '吳庭寬', '施雨彤', '廖禹喬', 
+            '陳昀亮', '林羽蓁'
+        ];
+
+        // 自動儲存機制 - 防抖動儲存
+        let saveTimeout = null;
+        function autoSave() {
+            // 清除之前的儲存計時器
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+            
+            // 設定新的儲存計時器（延遲100ms儲存，避免頻繁操作）
+            saveTimeout = setTimeout(() => {
+                saveAllData();
+            }, 100);
+        }
+
+        // 頁面關閉前自動儲存
+        window.addEventListener('beforeunload', function(e) {
+            saveAllData();
+        });
+
+        // 頁面隱藏時自動儲存（例如切換分頁）
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                saveAllData();
+            }
+        });
+
+        // 定期自動儲存（每30秒）
+        setInterval(() => {
+            saveAllData();
+        }, 30000);
+
+        // 生成學生
+        function generateStudents(count = 42) {
+            const currentCount = students.length;
+            
+            if (count > currentCount) {
+                // 增加學生
+                for (let i = currentCount + 1; i <= count; i++) {
+                    let savedName = localStorage.getItem(`student_${i}_name`);
+                    
+                    // 如果沒有儲存的姓名，使用預設姓名
+                    if (!savedName && i <= defaultStudentNames.length) {
+                        savedName = defaultStudentNames[i - 1];
+                        localStorage.setItem(`student_${i}_name`, savedName);
+                    }
+                    
+                    const student = {
+                        id: i,
+                        name: savedName || '',
+                        completedAssignments: new Set(),
+                        correctionAssignments: new Set()
+                    };
+                    
+                    // 如果有儲存的學生資料，載入完成狀態
+                    if (window.savedStudentsData) {
+                        const savedStudent = window.savedStudentsData.find(s => s.id === i);
+                        if (savedStudent) {
+                            student.name = savedStudent.name || student.name;
+                            student.completedAssignments = new Set(savedStudent.completedAssignments || []);
+                            student.correctionAssignments = new Set(savedStudent.correctionAssignments || []);
+                        }
+                    }
+                    
+                    students.push(student);
+                }
+            } else if (count < currentCount) {
+                // 減少學生
+                students = students.slice(0, count);
+            }
+            
+            // 清除暫存的儲存資料
+            if (window.savedStudentsData) {
+                delete window.savedStudentsData;
+            }
+            
+            renderStudentGrid();
+            updateIncompleteList();
+            updateMissingAssignmentsList();
+            renderAssignmentList(); // 重新渲染評量清單以顯示正確的選中狀態
+        }
+
+        // 渲染學生名單
+        function renderStudentGrid() {
+            const grid = document.getElementById('studentGrid');
+            grid.innerHTML = '';
+            
+            students.forEach(student => {
+                const studentDiv = document.createElement('div');
+                studentDiv.className = 'student-seat';
+                studentDiv.dataset.studentId = student.id;
+                
+                const isCompleted = selectedAssignment && student.completedAssignments.has(selectedAssignment);
+                const isCorrection = selectedAssignment && student.correctionAssignments.has(selectedAssignment);
+                if (isCompleted) {
+                    studentDiv.classList.add('completed');
+                } else if (isCorrection) {
+                    studentDiv.classList.add('correction');
+                }
+                if (renameMode) {
+                    studentDiv.classList.add('rename-mode');
+                }
+                
+                if (renameMode) {
+                    studentDiv.innerHTML = `
+                        <input type="text" value="${student.name}" 
+                               onblur="updateStudentName(${student.id}, this.value)"
+                               onkeypress="if(event.key==='Enter') this.blur()"
+                               class="w-full text-center text-xs border border-purple-300 rounded px-1 py-0.5"
+                               placeholder="${student.id}號">
+                        ${isCompleted ? '<div class="completed-mark">✓</div>' : isCorrection ? '<div class="correction-mark">▲</div>' : ''}
+                    `;
+                } else {
+                    if (student.name) {
+                        studentDiv.innerHTML = `
+                            <div class="seat-name-only">${student.name}</div>
+                            ${isCompleted ? '<div class="completed-mark">✓</div>' : isCorrection ? '<div class="correction-mark">▲</div>' : ''}
+                        `;
+                    } else {
+                        studentDiv.innerHTML = `
+                            <div class="seat-number">${student.id}</div>
+                            ${isCompleted ? '<div class="completed-mark">✓</div>' : isCorrection ? '<div class="correction-mark">▲</div>' : ''}
+                        `;
+                    }
+                    
+                    studentDiv.onclick = () => handleSeatClick(student.id);
+                }
+                
+                grid.appendChild(studentDiv);
+            });
+        }
+
+        // 編輯學生姓名
+        function editStudentName(studentId) {
+            if (editingStudent === studentId) return;
+            
+            const student = students.find(s => s.id === studentId);
+            const newName = prompt('請輸入學生姓名：', student.name);
+            
+            if (newName !== null && newName.trim()) {
+                student.name = newName.trim();
+                localStorage.setItem(`student_${studentId}_name`, student.name);
+                renderStudentGrid();
+                updateIncompleteList();
+                updateMissingAssignmentsList();
+            }
+        }
+
+        // 更新學生姓名
+        function updateStudentName(studentId, newName) {
+            const student = students.find(s => s.id === studentId);
+            student.name = newName.trim();
+            localStorage.setItem(`student_${studentId}_name`, student.name);
+            updateIncompleteList();
+            updateMissingAssignmentsList();
+            autoSave(); // 自動儲存
+        }
+
+
+
+
+
+        // 處理座位點擊
+        function handleSeatClick(studentId) {
+            if (renameMode) {
+                editStudentName(studentId);
+            } else {
+                toggleStudentCompletion(studentId);
+            }
+        }
+
+        // 處理姓名點擊
+        function handleNameClick(studentId, event) {
+            event.stopPropagation();
+            if (renameMode) {
+                editStudentName(studentId);
+            }
+        }
+
+        // 切換更名模式
+        function toggleRenameMode() {
+            renameMode = !renameMode;
+            const btn = document.getElementById('renameBtn');
+            if (renameMode) {
+                btn.textContent = '完成';
+                btn.className = 'bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm';
+            } else {
+                btn.textContent = '更名';
+                btn.className = 'bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm';
+            }
+            renderStudentGrid();
+        }
+
+        // 儲存所有資料到 localStorage
+        function saveAllData() {
+            try {
+                // 儲存評量清單
+                localStorage.setItem('assignments', JSON.stringify(assignments));
+                
+                // 儲存當前選中的評量
+                localStorage.setItem('selectedAssignment', selectedAssignment || '');
+                
+                // 儲存學生完成狀態
+                const studentsData = students.map(student => ({
+                    id: student.id,
+                    name: student.name,
+                    completedAssignments: Array.from(student.completedAssignments),
+                    correctionAssignments: Array.from(student.correctionAssignments)
+                }));
+                localStorage.setItem('studentsData', JSON.stringify(studentsData));
+                
+                // 儲存學生人數
+                localStorage.setItem('studentCount', students.length.toString());
+            } catch (error) {
+                console.error('儲存資料時發生錯誤:', error);
+            }
+        }
+
+        // 從 localStorage 載入所有資料
+        function loadAllData() {
+            try {
+                // 載入評量清單
+                const savedAssignments = localStorage.getItem('assignments');
+                if (savedAssignments) {
+                    assignments = JSON.parse(savedAssignments);
+                }
+                
+                // 載入當前選中的評量
+                const savedSelectedAssignment = localStorage.getItem('selectedAssignment');
+                if (savedSelectedAssignment && assignments.includes(savedSelectedAssignment)) {
+                    selectedAssignment = savedSelectedAssignment;
+                }
+                
+                // 載入學生人數
+                const savedStudentCount = localStorage.getItem('studentCount');
+                if (savedStudentCount) {
+                    const count = parseInt(savedStudentCount);
+                    document.getElementById('studentCount').value = count;
+                    document.getElementById('studentCountMobile').value = count;
+                }
+                
+                // 載入學生完成狀態
+                const savedStudentsData = localStorage.getItem('studentsData');
+                if (savedStudentsData) {
+                    const studentsData = JSON.parse(savedStudentsData);
+                    // 這裡先載入資料，稍後在 generateStudents 中會合併
+                    window.savedStudentsData = studentsData;
+                }
+            } catch (error) {
+                console.error('載入資料時發生錯誤:', error);
+            }
+        }
+
+        // 切換學生完成狀態
+        function toggleStudentCompletion(studentId) {
+            if (!selectedAssignment) {
+                alert('請先選擇一個評量項目');
+                return;
+            }
+            
+            const student = students.find(s => s.id === studentId);
+            const isCompleted = student.completedAssignments.has(selectedAssignment);
+            const isCorrection = student.correctionAssignments.has(selectedAssignment);
+            
+            if (isCompleted) {
+                // 已完成 -> 未完成
+                student.completedAssignments.delete(selectedAssignment);
+                student.correctionAssignments.delete(selectedAssignment);
+            } else if (isCorrection) {
+                // 訂正中 -> 完成
+                student.correctionAssignments.delete(selectedAssignment);
+                student.completedAssignments.add(selectedAssignment);
+            } else {
+                // 未完成 -> 訂正中
+                student.correctionAssignments.add(selectedAssignment);
+            }
+            
+            renderStudentGrid();
+            updateIncompleteList();
+            updateMissingAssignmentsList();
+            autoSave(); // 自動儲存
+        }
+
+        // 新增評量
+        function addAssignment() {
+            const input = document.getElementById('newAssignment');
+            const assignmentName = input.value.trim();
+            
+            if (!assignmentName) {
+                alert('請輸入評量名稱');
+                return;
+            }
+            
+            if (assignments.includes(assignmentName)) {
+                alert('此評量已存在');
+                return;
+            }
+            
+            assignments.unshift(assignmentName); // 新評量加到最前面
+            input.value = '';
+            document.getElementById('newAssignmentMobile').value = '';
+            renderAssignmentList();
+            updateMissingAssignmentsList();
+            autoSave(); // 自動儲存
+        }
+
+        // 手機版新增評量
+        function addAssignmentMobile() {
+            const input = document.getElementById('newAssignmentMobile');
+            const assignmentName = input.value.trim();
+            
+            if (!assignmentName) {
+                alert('請輸入評量名稱');
+                return;
+            }
+            
+            if (assignments.includes(assignmentName)) {
+                alert('此評量已存在');
+                return;
+            }
+            
+            assignments.unshift(assignmentName); // 新評量加到最前面
+            input.value = '';
+            document.getElementById('newAssignment').value = '';
+            renderAssignmentList();
+            updateMissingAssignmentsList();
+            autoSave(); // 自動儲存
+        }
+
+        // 支援 Enter 鍵新增評量
+        document.addEventListener('DOMContentLoaded', function() {
+            const desktopInput = document.getElementById('newAssignment');
+            const mobileInput = document.getElementById('newAssignmentMobile');
+            
+            if (desktopInput) {
+                desktopInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        addAssignment();
+                    }
+                });
+            }
+            
+            if (mobileInput) {
+                mobileInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        addAssignmentMobile();
+                    }
+                });
+            }
+        });
+
+        // 渲染評量清單
+        function renderAssignmentList() {
+            const list = document.getElementById('assignmentList');
+            
+            if (assignments.length === 0) {
+                list.innerHTML = '<div class="text-gray-500 text-center py-8 text-sm w-full">尚無評量項目</div>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            assignments.forEach((assignment, index) => {
+                const assignmentDiv = document.createElement('div');
+                assignmentDiv.className = `assignment-item ${selectedAssignment === assignment ? 'selected' : ''}`;
+                
+                const completedCount = students.filter(s => s.completedAssignments.has(assignment)).length;
+                const totalCount = students.length;
+                
+                const clickCount = deleteClickCount[assignment] || 0;
+                let deleteButtonText = '刪除';
+                let deleteButtonClass = 'text-red-500 hover:text-red-700 text-xs bg-red-50 hover:bg-red-100 px-1 py-0.5 rounded';
+                
+                if (clickCount === 1) {
+                    deleteButtonText = '再按2次';
+                    deleteButtonClass = 'text-orange-500 hover:text-orange-700 text-xs bg-orange-50 hover:bg-orange-100 px-1 py-0.5 rounded';
+                } else if (clickCount === 2) {
+                    deleteButtonText = '確認刪除';
+                    deleteButtonClass = 'text-red-600 hover:text-red-800 text-xs bg-red-100 hover:bg-red-200 px-1 py-0.5 rounded font-medium';
+                }
+                
+                assignmentDiv.innerHTML = `
+                    <div class="text-center relative">
+                        <div class="font-medium text-sm">${assignment}</div>
+                        <div class="flex items-center justify-between mt-1">
+                            <span class="text-xs text-gray-500">${completedCount}/${totalCount}</span>
+                            <button onclick="event.stopPropagation(); removeAssignment(${index})" class="${deleteButtonClass}">${deleteButtonText}</button>
+                        </div>
+                    </div>
+                `;
+                
+                assignmentDiv.onclick = (e) => {
+                    if (e.target.tagName === 'BUTTON') return;
+                    selectAssignment(assignment);
+                };
+                
+                list.appendChild(assignmentDiv);
+            });
+        }
+
+        // 選擇評量
+        function selectAssignment(assignment) {
+            selectedAssignment = assignment;
+            renderAssignmentList();
+            renderStudentGrid();
+            updateIncompleteList();
+            autoSave(); // 自動儲存
+        }
+
+        // 刪除評量 - 需要連點3下
+        let deleteClickCount = {};
+        let deleteTimeout = {};
+        
+        function removeAssignment(index) {
+            const assignment = assignments[index];
+            
+            // 初始化點擊計數
+            if (!deleteClickCount[assignment]) {
+                deleteClickCount[assignment] = 0;
+            }
+            
+            deleteClickCount[assignment]++;
+            
+            // 清除之前的超時
+            if (deleteTimeout[assignment]) {
+                clearTimeout(deleteTimeout[assignment]);
+            }
+            
+            if (deleteClickCount[assignment] >= 3) {
+                // 第三次點擊，執行刪除
+                delete deleteClickCount[assignment];
+                delete deleteTimeout[assignment];
+                
+                // 從陣列中移除評量
+                assignments.splice(index, 1);
+                
+                // 從所有學生的完成記錄中移除此評量
+                students.forEach(student => {
+                    student.completedAssignments.delete(assignment);
+                    student.correctionAssignments.delete(assignment);
+                });
+                
+                // 如果刪除的是當前選中的評量，清除選擇
+                if (selectedAssignment === assignment) {
+                    selectedAssignment = null;
+                }
+                
+                // 重新渲染所有相關元件
+                renderAssignmentList();
+                renderStudentGrid();
+                updateIncompleteList();
+                updateMissingAssignmentsList();
+                autoSave(); // 自動儲存
+            } else {
+                // 設置2秒後重置計數
+                deleteTimeout[assignment] = setTimeout(() => {
+                    deleteClickCount[assignment] = 0;
+                    renderAssignmentList(); // 重新渲染以更新按鈕文字
+                }, 2000);
+                
+                // 重新渲染以更新按鈕文字
+                renderAssignmentList();
+            }
+        }
+
+        // 更新未完成名單
+        function updateIncompleteList() {
+            const list = document.getElementById('incompleteList');
+            
+            if (!selectedAssignment) {
+                list.innerHTML = '<div class="text-gray-500 text-center py-8 text-sm">請先選擇評量</div>';
+                return;
+            }
+            
+            const incompleteStudents = students.filter(s => 
+                !s.completedAssignments.has(selectedAssignment)
+            );
+            
+            if (incompleteStudents.length === 0) {
+                list.innerHTML = '<div class="text-green-600 text-center py-8 text-sm font-medium">🎉 全部完成！</div>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            list.className = 'grid gap-2 overflow-y-auto flex-1';
+            list.style.gridTemplateColumns = 'repeat(auto-fit, minmax(80px, 1fr))';
+            
+            incompleteStudents.forEach(student => {
+                const studentDiv = document.createElement('div');
+                const isCorrection = student.correctionAssignments.has(selectedAssignment);
+                
+                if (isCorrection) {
+                    studentDiv.className = 'student-seat bg-yellow-50 border-yellow-200';
+                    studentDiv.innerHTML = `
+                        <div class="seat-name-only text-yellow-600" style="font-size: 14px;">${student.name || `${student.id}號`}</div>
+                    `;
+                } else {
+                    studentDiv.className = 'student-seat bg-red-50 border-red-200';
+                    studentDiv.innerHTML = `
+                        <div class="seat-name-only text-red-600" style="font-size: 14px;">${student.name || `${student.id}號`}</div>
+                    `;
+                }
+                
+                list.appendChild(studentDiv);
+            });
+        }
+
+        // 更新缺交名單
+        function updateMissingAssignmentsList() {
+            const list = document.getElementById('missingAssignmentsList');
+            
+            if (assignments.length === 0) {
+                list.innerHTML = '<div class="text-gray-500 text-center py-8 text-sm">尚無評量項目</div>';
+                return;
+            }
+            
+            list.innerHTML = '';
+            
+            // 收集所有有缺交或訂正的學生
+            const studentsWithIssues = [];
+            
+            students.forEach(student => {
+                const missingAssignments = assignments.filter(assignment => 
+                    !student.completedAssignments.has(assignment) && !student.correctionAssignments.has(assignment)
+                );
+                
+                const correctionAssignments = assignments.filter(assignment => 
+                    student.correctionAssignments.has(assignment)
+                );
+                
+                if (missingAssignments.length > 0 || correctionAssignments.length > 0) {
+                    studentsWithIssues.push({
+                        student: student,
+                        missing: missingAssignments,
+                        correction: correctionAssignments
+                    });
+                }
+            });
+            
+            if (studentsWithIssues.length === 0) {
+                list.innerHTML = '<div class="text-green-600 text-center py-8 text-sm font-medium">🎉 所有學生都已完成所有評量！</div>';
+                return;
+            }
+            
+            // 創建網格容器
+            const gridContainer = document.createElement('div');
+            gridContainer.className = 'grid gap-3';
+            gridContainer.style.gridTemplateColumns = 'repeat(auto-fit, minmax(120px, 1fr))';
+            
+            studentsWithIssues.forEach(item => {
+                const studentDiv = document.createElement('div');
+                studentDiv.className = 'bg-white border-2 rounded-lg p-3 cursor-pointer hover:shadow-md transition-all';
+                
+                // 根據狀態決定邊框顏色
+                if (item.missing.length > 0 && item.correction.length > 0) {
+                    // 既有缺交又有訂正 - 橘色
+                    studentDiv.classList.add('border-orange-300', 'hover:border-orange-400');
+                } else if (item.missing.length > 0) {
+                    // 只有缺交 - 紅色
+                    studentDiv.classList.add('border-red-300', 'hover:border-red-400');
+                } else {
+                    // 只有訂正 - 黃色
+                    studentDiv.classList.add('border-yellow-300', 'hover:border-yellow-400');
+                }
+                
+                let content = `
+                    <div class="text-center mb-2">
+                        <div class="font-medium text-gray-800 text-sm">${item.student.name || `${item.student.id}號`}</div>
+                    </div>
+                `;
+                
+                // 顯示缺交項目
+                if (item.missing.length > 0) {
+                    content += `
+                        <div class="mb-2">
+                            <div class="text-xs font-medium text-red-600 mb-1">缺交：</div>
+                            <div class="text-xs text-red-500 leading-tight">
+                                ${item.missing.join('、')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                // 顯示訂正項目
+                if (item.correction.length > 0) {
+                    content += `
+                        <div class="mb-1">
+                            <div class="text-xs font-medium text-yellow-600 mb-1">訂正：</div>
+                            <div class="text-xs text-yellow-600 leading-tight">
+                                ${item.correction.join('、')}
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                studentDiv.innerHTML = content;
+                
+                // 添加點擊事件顯示詳細資訊
+                studentDiv.onclick = () => {
+                    let details = `${item.student.name || `${item.student.id}號`} 的詳細狀況：\n\n`;
+                    
+                    if (item.missing.length > 0) {
+                        details += `缺交項目：\n${item.missing.join('、')}\n\n`;
+                    }
+                    
+                    if (item.correction.length > 0) {
+                        details += `訂正項目：\n${item.correction.join('、')}`;
+                    }
+                    
+                    alert(details);
+                };
+                
+                gridContainer.appendChild(studentDiv);
+            });
+            
+            list.appendChild(gridContainer);
+        }
+        
+        // 顯示學生詳細資訊
+        function showStudentDetails(studentName, missingAssignments, correctionAssignments, type) {
+            let details = `${studentName} 的詳細狀況：\n\n`;
+            
+            if (missingAssignments.length > 0) {
+                details += `缺交項目：\n${missingAssignments.join('、')}\n\n`;
+            }
+            
+            if (correctionAssignments.length > 0) {
+                details += `訂正項目：\n${correctionAssignments.join('、')}`;
+            }
+            
+            alert(details);
+        }
+
+        // 面板調整大小功能 - 支援桌面和平板
+        function initResizer() {
+            const resizer = document.getElementById('resizer');
+            const leftPanel = document.getElementById('leftPanel');
+            const rightPanel = document.getElementById('rightPanel');
+            let isResizing = false;
+
+            // 滑鼠事件（桌面）
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                document.addEventListener('mousemove', handleMouseMove);
+                document.addEventListener('mouseup', handleMouseUp);
+                e.preventDefault();
+            });
+
+            // 觸控事件（平板）
+            resizer.addEventListener('touchstart', (e) => {
+                isResizing = true;
+                document.addEventListener('touchmove', handleTouchMove);
+                document.addEventListener('touchend', handleTouchEnd);
+                e.preventDefault();
+            });
+
+            function handleMouseMove(e) {
+                if (!isResizing) return;
+                resizePanels(e.clientX);
+            }
+
+            function handleTouchMove(e) {
+                if (!isResizing) return;
+                e.preventDefault();
+                const touch = e.touches[0];
+                resizePanels(touch.clientX);
+            }
+
+            function resizePanels(clientX) {
+                const container = document.querySelector('.main-panels');
+                const containerRect = container.getBoundingClientRect();
+                const mouseX = clientX - containerRect.left;
+                
+                const minLeftWidth = 200;
+                const minRightWidth = 150;
+                const maxLeftWidth = containerRect.width - minRightWidth - 8; // 8px for resizer
+                
+                let leftWidth = Math.max(minLeftWidth, Math.min(maxLeftWidth, mouseX));
+                let rightWidth = containerRect.width - leftWidth - 8;
+                
+                leftPanel.style.flex = 'none';
+                leftPanel.style.width = leftWidth + 'px';
+                rightPanel.style.width = rightWidth + 'px';
+            }
+
+            function handleMouseUp() {
+                isResizing = false;
+                document.removeEventListener('mousemove', handleMouseMove);
+                document.removeEventListener('mouseup', handleMouseUp);
+            }
+
+            function handleTouchEnd() {
+                isResizing = false;
+                document.removeEventListener('touchmove', handleTouchMove);
+                document.removeEventListener('touchend', handleTouchEnd);
+            }
+        }
+
+
+
+
+
+
+
+
+        const key = 'studentsData';
+let prev = null; // 改成 null，保證第一次更新會被偵測到
+let counter = 0;
+
+// 建立顯示框
+const box = document.createElement('div');
+box.style.position = 'fixed';
+box.style.bottom = '10px';
+box.style.right = '10px';
+box.style.padding = '5px 10px';
+box.style.background = 'rgba(0,0,0,0.7)';
+box.style.color = '#fff';
+box.style.fontFamily = 'monospace';
+box.style.zIndex = 9999;
+box.style.borderRadius = '5px';
+box.innerText = counter;
+document.body.appendChild(box);
+
+// 監測更新
+setInterval(() => {
+  const curr = localStorage.getItem(key);
+  if (curr !== prev) {
+    prev = curr;
+    counter = (counter + 1) % 100; // 0~99 循環
+    box.innerText = counter;
+  }
+}, 300);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        // 頁面載入時初始化
+        init();
+        initResizer();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'97964f91a481f1cc',t:'MTc1NjkxMzY2Mi4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
